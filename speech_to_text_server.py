@@ -31,7 +31,7 @@ app = Flask(__name__)
 
 # start a new speech to text processing
 # example use:
-# curl -X POST -F "file=@/home/peter/dev/pocketsphinx/data/r_nixon_short.wav" http://localhost:8111/api/v1/start_kaldi_speech_to_text
+# curl -X POST -F "file=@/home/peter/dev/data/r_nixon_short.wav" http://localhost:8111/api/v1/start_deep_speech_to_text
 @app.route('/api/v1/start_deep_speech_to_text', methods=['GET', 'POST'])
 def start_deep_speech_to_text():
     silence_db = int(config["DeepSpeech"]["silence_db"])
@@ -104,4 +104,4 @@ def get_speech_to_text():
 if __name__ == '__main__':
     logger = logging.getLogger("copperhead-logger")
     logger.info("!!! RUNNING in TEST/DEBUG mode, not PRODUCTION !!!")
-    app.run(port=int(config["Service"]["port"]))
+    app.run(host="0.0.0.0", port=int(config["Service"]["port"]))
