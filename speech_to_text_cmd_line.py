@@ -10,10 +10,15 @@ import logging
 
 from util.spell import correction
 from util.sound_splitter import split_soundfile_into_many
+from util.configuration import get_configuration
 
-ffmpeg_executable = '/usr/bin/ffmpeg'
-deepspeech_executable = "/usr/local/bin/deepspeech"
-deepspeech_graph = "/opt/DeepSpeech/data/graph/output_graph.pb"
+# read system config
+system_configuration = get_configuration("settings.ini")
+
+# setup data from config
+ffmpeg_executable = system_configuration["DeepSpeech"]["ffmpeg_executable"]
+deepspeech_executable = system_configuration["DeepSpeech"]["deepspeech_executable"]
+deepspeech_graph_file = system_configuration["DeepSpeech"]["deepspeech_graph_file"]
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -26,8 +31,8 @@ if __name__ == '__main__' :
         temp_name = next(tempfile._get_candidate_names())
         temp_file_name = os.path.join(tempfile._get_default_tempdir(), temp_name + ".wav")
 
-        required_files = [input_sound_file, ffmpeg_executable, deepspeech_executable, deepspeech_graph]
-
+        # sanity check required files exist
+        required_files = [input_sound_file, ffmpeg_executable, deepspeech_executable, deepspeech_graph_file]
         for file in required_files:
             if not os.path.isfile(ffmpeg_executable):
                 raise ValueError("file/executable/data missing:" + file)
@@ -54,7 +59,7 @@ if __name__ == '__main__' :
         counter = 1
         for sound_file, interval in sound_file_list:
             logging.debug("processing " + str(counter) + " of " + str(len(sound_file_list)) )
-            process = subprocess.Popen([deepspeech_executable, deepspeech_graph, sound_file], stdout=subprocess.PIPE)
+            process = subprocess.Popen([deepspeech_executable, deepspeech_graph_file, sound_file], stdout=subprocess.PIPE)
             out, err = process.communicate()
             if err is not None:
                 raise ValueError(err)
@@ -66,3 +71,8 @@ if __name__ == '__main__' :
         # and output the corrected text
         for text, interval in raw_output_list:
             print(correction(text) + "|" + str(interval))
+
+        # cleanup - remove all temp files
+        os.remove(temp_file_name)
+        for sound_file, _ in sound_file_list:
+            os.remove(sound_file)
