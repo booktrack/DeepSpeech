@@ -20,7 +20,8 @@ if __name__ == '__main__' :
         print("takes one argument: sound-file to convert to text")
     else:
         input_sound_file = sys.argv[1]
-        temp_file_name = os.path.join(tempfile._get_default_tempdir(), next(tempfile._get_candidate_names()) + ".wav")
+        temp_name = next(tempfile._get_candidate_names())
+        temp_file_name = os.path.join(tempfile._get_default_tempdir(), temp_name + ".wav")
 
         required_files = [input_sound_file, ffmpeg_executable, deepspeech_executable, deepspeech_graph]
 
@@ -40,7 +41,7 @@ if __name__ == '__main__' :
 
         # split the sound file into many for very long files
         print("splitting sound-file into many")
-        sound_file_list = split_soundfile_into_many(temp_file_name)
+        sound_file_list = split_soundfile_into_many(temp_name, temp_file_name)
 
         # use the deepspeech native executable to convert the given wav file to text
         #
