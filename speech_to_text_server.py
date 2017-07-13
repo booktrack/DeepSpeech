@@ -60,8 +60,8 @@ def start_deep_speech_to_text():
 
     return '''
     <!doctype html>
-    <title>Kaldi Speech to Text Service [GET]</title>
-    <h1>Upload Sound File to Kaldi</h1>
+    <title>DeepSpeech to Text Service [GET]</title>
+    <h1>Upload Sound File to DeepSpeech</h1>
     <form action="" method=post enctype=multipart/form-data>
       <p><input type=file name=file>
          <input type=submit value=Upload>
@@ -102,6 +102,6 @@ def get_speech_to_text():
 
 
 if __name__ == '__main__':
-    logger = logging.getLogger("copperhead-logger")
+    logger = logging.getLogger("ds-logger")
     logger.info("!!! RUNNING in TEST/DEBUG mode, not PRODUCTION !!!")
     app.run(host="0.0.0.0", port=int(config["Service"]["port"]))

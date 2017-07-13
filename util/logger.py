@@ -6,7 +6,7 @@ def setup_logging(config):
     if not "Logging" in config:
         raise ValueError("invalid configuration, missing [Logging]")
     logging_config = config["Logging"]
-    logger = logging.getLogger("copperhead-logger")
+    logger = logging.getLogger("ds-logger")
     file_handler = logging.FileHandler(logging_config['filename'])
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     file_handler.setFormatter(formatter)
