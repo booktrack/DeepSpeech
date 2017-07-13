@@ -45,7 +45,7 @@ if __name__ == '__main__' :
         # split the sound file into many for very long files
         logging.debug("splitting sound-file into many")
         sound_file_list = split_soundfile_into_many(temp_name, temp_file_name)
-        logging.debug("split into " + str(sound_file_list) + " parts")
+        logging.debug("split wav into " + str(len(sound_file_list)) + " parts")
 
         # use the deepspeech native executable to convert the given wav file to text
         #
