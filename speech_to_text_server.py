@@ -34,7 +34,7 @@ app = Flask(__name__)
 # curl -X POST -F "file=@/home/peter/dev/data/r_nixon_short.wav" http://localhost:8111/api/v1/start_deep_speech_to_text
 @app.route('/api/v1/start_deep_speech_to_text', methods=['GET', 'POST'])
 def start_deep_speech_to_text():
-    silence_db = int(config["DeepSpeech"]["silence_db"])
+    silence_db = request.args.get('silence_db', int(config["DeepSpeech"]["silence_db"]), int)
     if request.method == 'POST':
         if 'file' in request.files:
             file = request.files['file']
