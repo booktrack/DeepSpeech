@@ -55,22 +55,19 @@ if __name__ == '__main__' :
         # use the deepspeech native executable to convert the given wav file to text
         #
         logging.debug("running deepspeech")
-        raw_output_list = []
+        text_output_list = []
         counter = 1
         for sound_file, interval in sound_file_list:
-            logging.debug("processing " + str(counter) + " of " + str(len(sound_file_list)) )
             process = subprocess.Popen([deepspeech_executable, deepspeech_graph_file, sound_file], stdout=subprocess.PIPE)
             out, err = process.communicate()
             if err is not None:
                 raise ValueError(err)
             # change bytes back to text
             text = out.decode("utf-8")
-            raw_output_list.append((text, interval))
+            corrected_text = correction(text)
+            text_output_list.append((corrected_text, interval))
+            print(corrected_text + "|" + str(interval))
             counter += 1
-
-        # and output the corrected text
-        for text, interval in raw_output_list:
-            print(correction(text) + "|" + str(interval))
 
         # cleanup - remove all temp files
         os.remove(temp_file_name)
