@@ -19,6 +19,7 @@ system_configuration = get_configuration("settings.ini")
 ffmpeg_executable = system_configuration["DeepSpeech"]["ffmpeg_executable"]
 deepspeech_executable = system_configuration["DeepSpeech"]["deepspeech_executable"]
 deepspeech_graph_file = system_configuration["DeepSpeech"]["deepspeech_graph_file"]
+silence_db = system_configuration["DeepSpeech"]["silence_db"]
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -49,7 +50,7 @@ if __name__ == '__main__' :
 
         # split the sound file into many for very long files
         logging.debug("splitting sound-file into many")
-        sound_file_list = split_soundfile_into_many(temp_name, temp_file_name)
+        sound_file_list = split_soundfile_into_many(temp_name, temp_file_name, top_db=silence_db)
         logging.debug("split wav into " + str(len(sound_file_list)) + " parts")
 
         # use the deepspeech native executable to convert the given wav file to text
