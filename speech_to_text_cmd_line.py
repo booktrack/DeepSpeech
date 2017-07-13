@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import subprocess
+import logging
 
 from util.spell import correction
 from util.sound_splitter import split_soundfile_into_many
@@ -32,7 +33,7 @@ if __name__ == '__main__' :
 
         # convert any soundfile using ffmpeg to the right format
         # ffmpeg -i bill_gates-TED.mp3 -acodec pcm_s16le -ac 1 -ar 16000 output.wav
-        print("converting " + input_sound_file + " to the correct input format")
+        logging.debug("converting " + input_sound_file + " to the correct input format")
         with open(os.devnull, 'w') as f_null:
             subprocess.call([ffmpeg_executable, "-i", input_sound_file, "-acodec", "pcm_s16le",
                              "-ac", "1", "-ar", "16000", temp_file_name], stdout=f_null, stderr=f_null)
@@ -40,14 +41,17 @@ if __name__ == '__main__' :
             raise ValueError("file not converted:" + input_sound_file)
 
         # split the sound file into many for very long files
-        print("splitting sound-file into many")
+        logging.debug("splitting sound-file into many")
         sound_file_list = split_soundfile_into_many(temp_name, temp_file_name)
+        logging.debug("split into " + str(sound_file_list) + " parts")
 
         # use the deepspeech native executable to convert the given wav file to text
         #
-        print("running deepspeech")
+        logging.debug("running deepspeech")
         raw_output_list = []
+        counter = 1
         for sound_file, interval in sound_file_list:
+            logging.debug("prcessing " + str(counter) + " of " + str(len(sound_file_list)) )
             process = subprocess.Popen([deepspeech_executable, deepspeech_graph, sound_file], stdout=subprocess.PIPE)
             out, err = process.communicate()
             if err is not None:
@@ -55,8 +59,8 @@ if __name__ == '__main__' :
             # change bytes back to text
             text = out.decode("utf-8")
             raw_output_list.append((text, interval))
+            counter += 1
 
         # and output the corrected text
-        print("CORRECTED text out: ")
         for text, interval in raw_output_list:
             print(correction(text) + "|" + str(interval))
