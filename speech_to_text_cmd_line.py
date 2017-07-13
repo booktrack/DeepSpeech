@@ -19,7 +19,7 @@ system_configuration = get_configuration("settings.ini")
 ffmpeg_executable = system_configuration["DeepSpeech"]["ffmpeg_executable"]
 deepspeech_executable = system_configuration["DeepSpeech"]["deepspeech_executable"]
 deepspeech_graph_file = system_configuration["DeepSpeech"]["deepspeech_graph_file"]
-silence_db = system_configuration["DeepSpeech"]["silence_db"]
+silence_db = int(system_configuration["DeepSpeech"]["silence_db"])
 
 logging.basicConfig(level=logging.DEBUG)
 
