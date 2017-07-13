@@ -53,7 +53,7 @@ if __name__ == '__main__' :
         raw_output_list = []
         counter = 1
         for sound_file, interval in sound_file_list:
-            logging.debug("prcessing " + str(counter) + " of " + str(len(sound_file_list)) )
+            logging.debug("processing " + str(counter) + " of " + str(len(sound_file_list)) )
             process = subprocess.Popen([deepspeech_executable, deepspeech_graph, sound_file], stdout=subprocess.PIPE)
             out, err = process.communicate()
             if err is not None:
