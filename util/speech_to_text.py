@@ -22,6 +22,19 @@ def get_progress(job_id: str) -> str:
     return ''
 
 
+# writer a progress string to the progress file
+def write_progress(job_id: str, message: str):
+    filename = os.path.join(tempfile.gettempdir(), job_id + '_progress.txt')
+    with open(filename, 'w') as writer:
+        writer.write(message)
+
+
+# remove the progress file after finishing
+def remove_progress(job_id: str):
+    filename = os.path.join(tempfile.gettempdir(), job_id + '_progress.txt')
+    os.remove(filename)
+
+
 # the thread that will process the sound file and deliver it back to the parent
 # filename will be removed at the end of this processing as it is assumed to be a scratch file
 # stt_method = {'kaldi', 'pocketsphinx'}
@@ -58,6 +71,7 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
         if not os.path.isfile(ffmpeg_executable):
             raise ValueError("file/executable/data missing:" + file)
 
+    write_progress(unique_id, 'splitting sound-file: 0.00%')
     temp_file_name = os.path.join(tempfile._get_default_tempdir(), unique_id + ".wav")
 
     # convert any soundfile using ffmpeg to the right format
@@ -77,6 +91,7 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
     # use the deepspeech native executable to convert the given wav file to text
     logger.debug("running deepspeech for " + unique_id)
     text_output_list = []
+    counter = 0
     for sound_file, interval in sound_file_list:
         process = subprocess.Popen([deepspeech_executable, deepspeech_graph_file, sound_file], stdout=subprocess.PIPE)
         out, err = process.communicate()
@@ -86,10 +101,14 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
         text = out.decode("utf-8")
         corrected_text = correction(text)
         text_output_list.append((corrected_text, interval))
+        counter += 1
+        progress_str = "{:.2f}%".format(counter * 100.0 / len(sound_file_list))
+        write_progress(unique_id, progress_str)
 
     # cleanup - remove all temp files
     os.remove(temp_file_name)
     for sound_file, _ in sound_file_list:
         os.remove(sound_file)
+    remove_progress(unique_id)
 
     return text_output_list
