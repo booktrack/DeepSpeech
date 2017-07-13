@@ -15,6 +15,8 @@ ffmpeg_executable = '/usr/bin/ffmpeg'
 deepspeech_executable = "/usr/local/bin/deepspeech"
 deepspeech_graph = "/opt/DeepSpeech/data/graph/output_graph.pb"
 
+logging.basicConfig(level=logging.DEBUG)
+
 if __name__ == '__main__' :
 
     if len(sys.argv) != 2:
