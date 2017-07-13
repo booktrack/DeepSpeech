@@ -11,6 +11,8 @@ ffmpeg_executable = None
 deepspeech_executable = None
 deepspeech_graph_file = None
 
+logger = logging.getLogger("ds-logger")
+
 
 # read the progress file if it exists, otherwise return empty string
 def get_progress(job_id: str) -> str:
@@ -24,9 +26,9 @@ def get_progress(job_id: str) -> str:
 # filename will be removed at the end of this processing as it is assumed to be a scratch file
 # stt_method = {'kaldi', 'pocketsphinx'}
 def processing_thread(deep_speech_config, unique_id: str, filename: str, silence_db = 30):
-    logging.info("starting STT(" + unique_id + ")")
+    logger.info("starting STT(" + unique_id + ")")
     result = deep_speech_tt(deep_speech_config, unique_id, filename, silence_db=silence_db)
-    logging.info("finished STT(" + unique_id + "), got " + str(len(result)) + " parts")
+    logger.info("finished STT(" + unique_id + "), got " + str(len(result)) + " parts")
 
     # write the converted items to file for the given id
     out_filename = os.path.join(tempfile.gettempdir(), unique_id + '.txt')
@@ -60,7 +62,7 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
 
     # convert any soundfile using ffmpeg to the right format
     # ffmpeg -i bill_gates-TED.mp3 -acodec pcm_s16le -ac 1 -ar 16000 output.wav
-    logging.debug("converting " + input_sound_file + " to the correct input format for " + unique_id)
+    logger.debug("converting " + input_sound_file + " to the correct input format for " + unique_id)
     with open(os.devnull, 'w') as f_null:
         subprocess.call([ffmpeg_executable, "-i", input_sound_file, "-acodec", "pcm_s16le",
                          "-ac", "1", "-ar", "16000", temp_file_name], stdout=f_null, stderr=f_null)
@@ -68,12 +70,12 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
         raise ValueError("file not converted:" + input_sound_file + " for " + unique_id)
 
     # split the sound file into many for very long files
-    logging.debug("splitting sound-file into many for " + unique_id)
+    logger.debug("splitting sound-file into many for " + unique_id)
     sound_file_list = split_soundfile_into_many(unique_id, temp_file_name, top_db=silence_db)
-    logging.debug("split wav into " + str(len(sound_file_list)) + " parts for " + unique_id)
+    logger.debug("split wav into " + str(len(sound_file_list)) + " parts for " + unique_id)
 
     # use the deepspeech native executable to convert the given wav file to text
-    logging.debug("running deepspeech for " + unique_id)
+    logger.debug("running deepspeech for " + unique_id)
     text_output_list = []
     for sound_file, interval in sound_file_list:
         process = subprocess.Popen([deepspeech_executable, deepspeech_graph_file, sound_file], stdout=subprocess.PIPE)
