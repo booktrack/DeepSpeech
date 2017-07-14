@@ -117,7 +117,7 @@ Project DeepSpeech is an open source Speech-To-Text engine that uses a model tra
 - [Recommendations](#recommendations)
 - [Training a model](#training-a-model)
 - [Checkpointing](#checkpointing)
-- [Exporting a model for serving](#exporting-a-model-for-serving)
+- [Exporting a model for inference](#exporting-a-model-for-inference)
 - [Distributed computing across more than one machine](#distributed-computing-across-more-than-one-machine)
 - [Documentation](#documentation)
 - [Contact/Getting Help](#contactgetting-help)
@@ -128,12 +128,33 @@ Project DeepSpeech is an open source Speech-To-Text engine that uses a model tra
 * [TensorFlow 1.0 or 1.1](https://www.tensorflow.org/install/)
 * [SciPy](https://scipy.org/install.html)
 * [PyXDG](https://pypi.python.org/pypi/pyxdg)
-* [python_speech_features](https://pypi.python.org/pypi/python_speech_features)
+* [python_speech_features](https://pypi.python.org/pypi/python_speech_features) (nb: deprecated)
 * [python sox](https://pypi.python.org/pypi/sox)
 * [pandas](https://pypi.python.org/pypi/pandas)
-
+* [DeepSpeech native client libraries](https://tools.taskcluster.net/index/artifacts/#project.deepspeech.deepspeech.native_client.master/)
 
 ## Install
+
+### Installing pre-built DeepSpeech Python bindings
+
+Pre-built binaries can be found on TaskCluster. You'll need to download `native_client.tar.xz` and the appropriate Python wheel package.
+
+[native_client.tar.xz (Linux / amd64)](https://index.taskcluster.net/v1/task/project.deepspeech.deepspeech.native_client.master.cpu/artifacts/public/native_client.tar.xz)
+[deepspeech-0.0.1-cp27-cp27mu-linux_x86_64.whl (Linux / amd64)](https://index.taskcluster.net/v1/task/project.deepspeech.deepspeech.native_client.master.cpu/artifacts/public/deepspeech-0.0.1-cp27-cp27mu-linux_x86_64.whl)
+[Other configurations](https://tools.taskcluster.net/index/artifacts/#project.deepspeech.deepspeech.native_client.master/project.deepspeech.deepspeech.native_client.master)
+
+First, the library files contained in `native_client.tar.xz` need to be installed within the system library path (e.g. `/usr/lib`, or some other path listed in `$LD_LIBRARY_PATH`).
+
+After the library files are installed, you can use pip to install the Python package, like so:
+```bash
+pip install <path to .whl file>
+```
+
+### Installing DeepSpeech Python bindings from source
+
+If pre-built binaries aren't available for your system, you'll need to install them from scratch. Follow [these instructions](native_client/README.md).
+
+### Installing other requirements
 
 Manually install [Git Large File Storage](https://git-lfs.github.com/), then open a terminal and run:
 ```bash
@@ -154,7 +175,7 @@ The central (Python) script is `DeepSpeech.py` in the project's root directory. 
 $ ./DeepSpeech.py --help
 ```
 
-To get the output of this in a slightly better formatted way, you can also look up the option definitions top of `DeepSpeech.py`.
+To get the output of this in a slightly better-formatted way, you can also look up the option definitions top of `DeepSpeech.py`.
 For executing pre-configured training scenarios, there is a collection of convenience scripts in the `bin` folder. Most of them are named after the corpora they are configured for. Keep in mind that the other speech corpora are *very large*, on the order of tens of gigabytes, and some aren't free. Downloading and preprocessing them can take a very long time, and training on them without a fast GPU (GTX 10 series recommended) takes even longer. If you experience GPU OOM errors while training, try reducing `batch_size`.
 
 As a simple first example you can open a terminal, change to the directory of the DeepSpeech checkout and run:
@@ -169,15 +190,15 @@ Then, just run the script to train the modified network.
 
 Each dataset has a corresponding importer script in `bin/` that can be used to download (if it's freely available) and preprocess the dataset. See `bin/import_librivox.py` for an example of how to import and preprocess a large dataset for training with Deep Speech.
 
-If you've ran the old importers (in `util/importers/`), they could have removed source files that are needed for the new importers to run. In that case, simply remove the extracted folders and let the importer extract and process the dataset from scratch, and things should work.
+If you've run the old importers (in `util/importers/`), they could have removed source files that are needed for the new importers to run. In that case, simply remove the extracted folders and let the importer extract and process the dataset from scratch, and things should work.
 
 ## Checkpointing
 
-During training of a model so called checkpoints will get stored on disk. This takes place at a configurable time interval. The purpose of checkpoints is to allow interruption (also in case of some unexpected failure) and later continuation of training without loosing hours of training time. Resuming from checkpoints happens automatically by just (re)starting training with the same `--checkpoint_dir` of the former run.
+During training of a model so-called checkpoints will get stored on disk. This takes place at a configurable time interval. The purpose of checkpoints is to allow interruption (also in the case of some unexpected failure) and later continuation of training without losing hours of training time. Resuming from checkpoints happens automatically by just (re)starting training with the same `--checkpoint_dir` of the former run.
 
 Be aware however that checkpoints are only valid for the same model geometry they had been generated from. In other words: If there are error messages of certain `Tensors` having incompatible dimensions, this is most likely due to an incompatible model change. One usual way out would be to wipe all checkpoint files in the checkpoint directory or changing it before starting the training.
 
-## Exporting a model for serving
+## Exporting a model for inference
 
 If the `--export_dir` parameter is provided, a model will have been exported to this directory during training.
 Refer to the corresponding [README.md](native_client/README.md) for information on building and running a client that can use the exported model.

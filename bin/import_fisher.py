@@ -17,6 +17,7 @@ import pandas
 import subprocess
 import unicodedata
 import wave
+import audioop
 
 from util.text import validate_label
 
@@ -37,12 +38,21 @@ def _download_and_preprocess_data(data_dir):
                              converted_data="fisher-2005-split-wav",
                              trans_data=os.path.join("LDC2005T19", "fe_03_p2_tran", "data", "trans"))
 
-    # The following file has an incorrect transcript that is much longer than
-    # the audio source. The result is that we end up with more labels than time
-    # slices, which breaks CTC. We fix this directly since it's a single occurrence
-    # in the entire corpus.
-    problematic_file = "fe_03_00265-33.53-33.81.wav"
-    all_2004.loc[all_2004["wav_filename"].map(lambda x: x.endswith(problematic_file)), "transcript"] = "correct"
+    # The following files have incorrect transcripts that are much longer than
+    # their audio source. The result is that we end up with more labels than time
+    # slices, which breaks CTC.
+    all_2004.loc[all_2004["wav_filename"].str.endswith("fe_03_00265-33.53-33.81.wav"), "transcript"] = "correct"
+    all_2004.loc[all_2004["wav_filename"].str.endswith("fe_03_00991-527.39-528.3.wav"), "transcript"] = "that's one of those"
+    all_2005.loc[all_2005["wav_filename"].str.endswith("fe_03_10282-344.42-344.84.wav"), "transcript"] = "they don't want"
+    all_2005.loc[all_2005["wav_filename"].str.endswith("fe_03_10677-101.04-106.41.wav"), "transcript"] = "uh my mine yeah the german shepherd pitbull mix he snores almost as loud as i do"
+
+    # The following file is just a short sound and not at all transcribed like provided.
+    # So we just exclude it.
+    all_2004 = all_2004[~all_2004["wav_filename"].str.endswith("fe_03_00027-393.8-394.05.wav")]
+    
+    # The following file is far too long and would ruin our training batch size.
+    # So we just exclude it.
+    all_2005 = all_2005[~all_2005["wav_filename"].str.endswith("fe_03_11487-31.09-234.06.wav")]
 
     # Conditionally split Fisher data into train/validation/test sets
     train_2004, dev_2004, test_2004 = _split_sets(all_2004)
@@ -140,7 +150,7 @@ def _split_wav_and_sentences(data_dir, trans_data, original_data, converted_data
                 new_wav_file = os.path.join(target_dir, new_wav_filename)
 
                 channel = 0 if segment["speaker"] == "A:" else 1
-                _split_wav(origAudios[channel], start_time, stop_time, new_wav_file)
+                _split_and_resample_wav(origAudios[channel], start_time, stop_time, new_wav_file)
 
                 new_wav_filesize = os.path.getsize(new_wav_file)
                 transcript = validate_label(segment["transcript"])
@@ -153,14 +163,18 @@ def _split_wav_and_sentences(data_dir, trans_data, original_data, converted_data
 
     return pandas.DataFrame(data=files, columns=["wav_filename", "wav_filesize", "transcript"])
 
-def _split_wav(origAudio, start_time, stop_time, new_wav_file):
+def _split_and_resample_wav(origAudio, start_time, stop_time, new_wav_file):
+    nChannels = origAudio.getnchannels()
+    sampleWidth = origAudio.getsampwidth()
     frameRate = origAudio.getframerate()
-    origAudio.setpos(int(start_time*frameRate))
-    chunkData = origAudio.readframes(int((stop_time - start_time)*frameRate))
+    origAudio.setpos(int(start_time * frameRate))
+    chunkData = origAudio.readframes(int((stop_time - start_time) * frameRate))
+    # by doubling the frame-rate we effectively go from 8 kHz to 16 kHz
+    chunkData, _ = audioop.ratecv(chunkData, sampleWidth, nChannels, frameRate, 2 * frameRate, None)
     chunkAudio = wave.open(new_wav_file, "w")
-    chunkAudio.setnchannels(origAudio.getnchannels())
-    chunkAudio.setsampwidth(origAudio.getsampwidth())
-    chunkAudio.setframerate(frameRate)
+    chunkAudio.setnchannels(nChannels)
+    chunkAudio.setsampwidth(sampleWidth)
+    chunkAudio.setframerate(2 * frameRate)
     chunkAudio.writeframes(chunkData)
     chunkAudio.close()
 

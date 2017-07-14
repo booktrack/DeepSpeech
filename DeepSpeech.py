@@ -20,12 +20,13 @@ from six.moves import zip, range, filter, urllib, BaseHTTPServer
 from tensorflow.contrib.session_bundle import exporter
 from tensorflow.python.tools import freeze_graph
 from threading import Thread, Lock
-from util.data_set_helpers import SwitchableDataSet, read_data_sets
+from util.feeding import DataSet, ModelFeeder
 from util.gpu import get_available_gpus
 from util.shared_lib import check_cupti
 from util.spell import correction
 from util.text import sparse_tensor_value_to_texts, wer
 from xdg import BaseDirectory as xdg
+import numpy as np
 
 
 # Importer
@@ -96,6 +97,7 @@ tf.app.flags.DEFINE_integer ('validation_step',  0,           'number of epochs 
 
 tf.app.flags.DEFINE_string  ('checkpoint_dir',   '',          'directory in which checkpoints are stored - defaults to directory "deepspeech/checkpoints" within user\'s data home specified by the XDG Base Directory Specification')
 tf.app.flags.DEFINE_integer ('checkpoint_secs',  600,         'checkpoint saving interval in seconds')
+tf.app.flags.DEFINE_integer ('max_to_keep',      5,           'number of checkpoint files to keep - default value is 5')
 
 # Exporting
 
@@ -124,6 +126,18 @@ tf.app.flags.DEFINE_integer ('n_hidden',         2048,        'layer width to us
 
 tf.app.flags.DEFINE_integer ('random_seed',      4567,        'default random seed that is used to initialize variables')
 tf.app.flags.DEFINE_float   ('default_stddev',   0.046875,    'default standard deviation to use when initialising weights and biases')
+
+# Early Stopping
+
+tf.app.flags.DEFINE_boolean ('early_stop',       True,        'enable early stopping mechanism over validation dataset. Make sure that dev FLAG is enabled for this to work')
+
+# This parameter is irrespective of the time taken by single epoch to complete and checkpoint saving intervals.
+# It is possible that early stopping is triggered far after the best checkpoint is already replaced by checkpoint saving interval mechanism.
+# One has to align the parameters (earlystop_nsteps, checkpoint_secs) accordingly as per the time taken by an epoch on different datasets.
+
+tf.app.flags.DEFINE_integer ('earlystop_nsteps',  4,          'number of steps to consider for early stopping. Loss is not stored in the checkpoint so when checkpoint is revived it starts the loss calculation from start at that point')
+tf.app.flags.DEFINE_float   ('estop_mean_thresh', 0.5,        'mean threshold for loss to determine the condition if early stopping is required')
+tf.app.flags.DEFINE_float   ('estop_std_thresh',  0.5,        'standard deviation threshold for loss to determine the condition if early stopping is required')
 
 for var in ['b1', 'h1', 'b2', 'h2', 'b3', 'h3', 'b5', 'h5', 'b6', 'h6']:
     tf.app.flags.DEFINE_float('%s_stddev' % var, None, 'standard deviation to use when initialising %s' % var)
@@ -359,7 +373,7 @@ def BiRNN(batch_x, seq_length, dropout):
 
     # 1st layer
     b1 = variable_on_worker_level('b1', [n_hidden_1], tf.random_normal_initializer(stddev=FLAGS.b1_stddev))
-    h1 = variable_on_worker_level('h1', [n_input + 2*n_input*n_context, n_hidden_1], tf.random_normal_initializer(stddev=FLAGS.h1_stddev))
+    h1 = variable_on_worker_level('h1', [n_input + 2*n_input*n_context, n_hidden_1], tf.contrib.layers.xavier_initializer(uniform=False))
     layer_1 = tf.minimum(tf.nn.relu(tf.add(tf.matmul(batch_x, h1), b1)), FLAGS.relu_clip)
     layer_1 = tf.nn.dropout(layer_1, (1.0 - dropout[0]))
 
@@ -421,7 +435,7 @@ def BiRNN(batch_x, seq_length, dropout):
     # Now we apply the weight matrix `h6` and bias `b6` to the output of `layer_5`
     # creating `n_classes` dimensional vectors, the logits.
     b6 = variable_on_worker_level('b6', [n_hidden_6], tf.random_normal_initializer(stddev=FLAGS.b6_stddev))
-    h6 = variable_on_worker_level('h6', [n_hidden_5, n_hidden_6], tf.random_normal_initializer(stddev=FLAGS.h6_stddev))
+    h6 = variable_on_worker_level('h6', [n_hidden_5, n_hidden_6], tf.contrib.layers.xavier_initializer(uniform=False))
     layer_6 = tf.add(tf.matmul(layer_5, h6), b6)
 
     # Finally we reshape layer_6 from a tensor of shape [n_steps*batch_size, n_hidden_6]
@@ -443,14 +457,14 @@ def BiRNN(batch_x, seq_length, dropout):
 # Conveniently, this loss function is implemented in TensorFlow.
 # Thus, we can simply make use of this implementation to define our loss.
 
-def calculate_mean_edit_distance_and_loss(batch_set, dropout):
+def calculate_mean_edit_distance_and_loss(model_feeder, tower, dropout):
     r'''
     This routine beam search decodes a mini-batch and calculates the loss and mean edit distance.
     Next to total and average loss it returns the mean edit distance,
     the decoded result and the batch's original Y.
     '''
     # Obtain the next batch of data
-    batch_x, batch_seq_len, batch_y = batch_set.next_batch()
+    batch_x, batch_seq_len, batch_y = model_feeder.next_batch(tower)
 
     # Calculate the logits of the batch using BiRNN
     logits = BiRNN(batch_x, tf.to_int64(batch_seq_len), dropout)
@@ -516,7 +530,7 @@ def create_optimizer():
 # on which all operations within the tower execute.
 # For example, all operations of 'tower 0' could execute on the first GPU `tf.device('/gpu:0')`.
 
-def get_tower_results(batch_set, optimizer):
+def get_tower_results(model_feeder, optimizer):
     r'''
     With this preliminary step out of the way, we can for each GPU introduce a
     tower for which's batch we calculate
@@ -572,7 +586,7 @@ def get_tower_results(batch_set, optimizer):
                     # Calculate the avg_loss and mean_edit_distance and retrieve the decoded
                     # batch along with the original batch's labels (Y) of this tower
                     total_loss, avg_loss, distance, mean_edit_distance, decoded, labels = \
-                        calculate_mean_edit_distance_and_loss(batch_set, no_dropout if optimizer is None else dropout_rates)
+                        calculate_mean_edit_distance_and_loss(model_feeder, i, no_dropout if optimizer is None else dropout_rates)
 
                     # Allow for variables to be re-used by the next tower
                     tf.get_variable_scope().reuse_variables()
@@ -955,6 +969,10 @@ class Epoch(object):
 
                 self.loss = agg_loss / num_jobs
 
+                # if the job was for validation dataset then append it to the COORD's _loss for early stop verification
+                if (FLAGS.early_stop is True) and (self.set_name == 'dev'):
+                    COORD._dev_losses.append(self.loss)
+
                 if self.report:
                     self.wer = agg_wer / num_jobs
                     self.mean_edit_distance = agg_mean_edit_distance / num_jobs
@@ -1017,7 +1035,7 @@ class TrainingCoordinator(object):
                 if self.path.startswith(PREFIX_NEXT_INDEX):
                     index = COORD.get_next_index(self.path[len(PREFIX_NEXT_INDEX):])
                     if index >= 0:
-                        self._send_answer(str(index))
+                        self._send_answer(str(index).encode("utf-8"))
                         return
                 elif self.path.startswith(PREFIX_GET_JOB):
                     job = COORD.get_job(worker=int(self.path[len(PREFIX_GET_JOB):]))
@@ -1068,6 +1086,7 @@ class TrainingCoordinator(object):
         self._epochs_running = []
         self._epochs_done = []
         self._reset_counters()
+        self._dev_losses = []
 
     def _log_all_jobs(self):
         '''Use this to debug-print epoch state'''
@@ -1075,12 +1094,12 @@ class TrainingCoordinator(object):
         for epoch in self._epochs_running:
             log_debug('       - running: ' + epoch.job_status())
 
-    def start_coordination(self, data_sets, step=0):
+    def start_coordination(self, model_feeder, step=0):
         '''Starts to coordinate epochs and jobs among workers on base of
         data-set sizes, the (global) step and FLAGS parameters.
 
         Args:
-            data_sets (DataSets): data-sets to be used for coordinated training
+            model_feeder (ModelFeeder): data-sets to be used for coordinated training
 
         Kwargs:
             step (int): global step of a loaded model to determine starting point
@@ -1098,7 +1117,7 @@ class TrainingCoordinator(object):
             batches_per_step = gpus_per_worker * max(1, FLAGS.replicas_to_agg)
 
             # Number of global steps per epoch - to be at least 1
-            steps_per_epoch = max(1, data_sets.train.total_batches // batches_per_step)
+            steps_per_epoch = max(1, model_feeder.train.total_batches // batches_per_step)
 
             # The start epoch of our training
             self._epoch = step // steps_per_epoch
@@ -1107,9 +1126,9 @@ class TrainingCoordinator(object):
             jobs_trained = (step % steps_per_epoch) * batches_per_step // batches_per_job
 
             # Total number of train/dev/test jobs covering their respective whole sets (one epoch)
-            self._num_jobs_train = max(1, data_sets.train.total_batches // batches_per_job)
-            self._num_jobs_dev   = max(1, data_sets.dev.total_batches   // batches_per_job)
-            self._num_jobs_test  = max(1, data_sets.test.total_batches  // batches_per_job)
+            self._num_jobs_train = max(1, model_feeder.train.total_batches // batches_per_job)
+            self._num_jobs_dev   = max(1, model_feeder.dev.total_batches   // batches_per_job)
+            self._num_jobs_test  = max(1, model_feeder.test.total_batches  // batches_per_job)
 
             if FLAGS.epoch < 0:
                 # A negative epoch means to add its absolute number to the epochs already computed
@@ -1134,6 +1153,7 @@ class TrainingCoordinator(object):
             log_debug('epoch: %d' % self._epoch)
             log_debug('target epoch: %d' % self._target_epoch)
             log_debug('steps per epoch: %d' % steps_per_epoch)
+            log_debug('number of batches in train set: %d' % model_feeder.train.total_batches)
             log_debug('batches per job: %d' % batches_per_job)
             log_debug('batches per step: %d' % batches_per_step)
             log_debug('number of jobs in train set: %d' % self._num_jobs_train)
@@ -1149,6 +1169,25 @@ class TrainingCoordinator(object):
 
         # Indicates, if there were 'new' epoch(s) provided
         result = False
+
+        # Make sure that early stop is enabled and validation part is enabled
+        if (FLAGS.early_stop is True) and (FLAGS.validation_step > 0) and (len(self._dev_losses) >= FLAGS.earlystop_nsteps):
+
+            # Calculate the mean of losses for past epochs
+            mean_loss = np.mean(self._dev_losses[-FLAGS.earlystop_nsteps:-1])
+            # Calculate the standard deviation for losses from validation part in the past epochs
+            std_loss = np.std(self._dev_losses[-FLAGS.earlystop_nsteps:-1])
+            # Update the list of losses incurred
+            self._dev_losses = self._dev_losses[-FLAGS.earlystop_nsteps:]
+            log_debug('Checking for early stopping (last %d steps) validation loss: %f, with standard deviation: %f and mean: %f' % (FLAGS.earlystop_nsteps, self._dev_losses[-1], std_loss, mean_loss))
+
+            # Check if validation loss has started increasing or is not decreasing substantially, making sure slight fluctuations don't bother the early stopping from working
+            if self._dev_losses[-1] > np.max(self._dev_losses[:-1]) or (abs(self._dev_losses[-1] - mean_loss) < FLAGS.estop_mean_thresh and std_loss < FLAGS.estop_std_thresh):
+                # Time to early stop
+                log_info('Early stop triggered as (for last %d steps) validation loss: %f with standard deviation: %f and mean: %f' % (FLAGS.earlystop_nsteps, self._dev_losses[-1], std_loss, mean_loss))
+                self._dev_losses = []
+                self._end_training()
+                self._train = False
 
         if self._train:
             # We are in train mode
@@ -1168,6 +1207,7 @@ class TrainingCoordinator(object):
                 if FLAGS.validation_step > 0 and (FLAGS.validation_step == 1 or self._epoch > 0) and self._epoch % FLAGS.validation_step == 0:
                     # The current epoch should also have a validation part
                     self._epochs_running.append(Epoch(self._epoch, self._num_jobs_dev, set_name='dev', report=is_display_step))
+
 
                 # Indicating that there were 'new' epoch(s) provided
                 result = True
@@ -1251,9 +1291,7 @@ class TrainingCoordinator(object):
             if is_chief:
                 member = '_index_' + set_name
                 value = getattr(self, member, -1)
-                if value >= 0:
-                    value += 1
-                    setattr(self, member, value)
+                setattr(self, member, value + 1)
                 return value
             else:
                 # We are a remote worker and have to hand over to the chief worker by HTTP
@@ -1372,22 +1410,31 @@ def train(server=None):
     # It will automgically get incremented by the optimizer.
     global_step = tf.Variable(0, trainable=False, name='global_step')
 
-    # Read all data sets
-    data_sets = read_data_sets(FLAGS.train_files.split(','),
-                               FLAGS.dev_files.split(','),
-                               FLAGS.test_files.split(','),
-                               FLAGS.train_batch_size,
-                               FLAGS.dev_batch_size,
-                               FLAGS.test_batch_size,
+    # Reading training set
+    train_set = DataSet(FLAGS.train_files.split(','),
+                        FLAGS.train_batch_size,
+                        limit=FLAGS.limit_train,
+                        next_index=lambda i: COORD.get_next_index('train'))
+
+    # Reading validation set
+    dev_set = DataSet(FLAGS.dev_files.split(','),
+                      FLAGS.dev_batch_size,
+                      limit=FLAGS.limit_dev,
+                      next_index=lambda i: COORD.get_next_index('dev'))
+
+    # Reading test set
+    test_set = DataSet(FLAGS.test_files.split(','),
+                       FLAGS.test_batch_size,
+                       limit=FLAGS.limit_test,
+                       next_index=lambda i: COORD.get_next_index('test'))
+
+    # Combining all sets to a multi set model feeder
+    model_feeder = ModelFeeder(train_set,
+                               dev_set,
+                               test_set,
                                n_input,
                                n_context,
-                               next_index=lambda set_name, index: COORD.get_next_index(set_name),
-                               limit_dev=FLAGS.limit_dev,
-                               limit_test=FLAGS.limit_test,
-                               limit_train=FLAGS.limit_train)
-
-    # Get the data sets
-    switchable_data_set = SwitchableDataSet(data_sets)
+                               tower_feeder_count=len(available_devices))
 
     # Create the optimizer
     optimizer = create_optimizer()
@@ -1399,7 +1446,7 @@ def train(server=None):
                                                    total_num_replicas=FLAGS.replicas)
 
     # Get the data_set specific graph end-points
-    results_tuple, gradients, mean_edit_distance, loss = get_tower_results(switchable_data_set, optimizer)
+    results_tuple, gradients, mean_edit_distance, loss = get_tower_results(model_feeder, optimizer)
 
     # Average tower gradients across GPUs
     avg_tower_gradients = average_gradients(gradients)
@@ -1414,6 +1461,9 @@ def train(server=None):
     apply_gradient_op = optimizer.apply_gradients(avg_tower_gradients, global_step=global_step)
 
 
+    if FLAGS.early_stop is True and not FLAGS.validation_step > 0:
+        log_warn('Parameter --validation_step needs to be >0 for early stopping to work')
+
     class CoordHook(tf.train.SessionRunHook):
         r'''
         Embedded coordination hook-class that will use variables of the
@@ -1421,13 +1471,13 @@ def train(server=None):
         '''
         def after_create_session(self, session, coord):
             log_debug('Starting queue runners...')
-            switchable_data_set.start_queue_threads(session, coord)
+            model_feeder.start_queue_threads(session, coord)
             log_debug('Queue runners started.')
 
         def end(self, session):
             # Closing the data_set queues
             log_debug('Closing queues...')
-            switchable_data_set.close_queue(session)
+            model_feeder.close_queues(session)
             log_debug('Queues closed.')
 
             # Telling the ps that we are done
@@ -1444,6 +1494,11 @@ def train(server=None):
     if FLAGS.summary_secs > 0:
         hooks.append(tf.train.SummarySaverHook(save_secs=FLAGS.summary_secs, output_dir=FLAGS.summary_dir, summary_op=merge_all_summaries_op))
 
+    # Hook wih number of checkpoint files to save in checkpoint_dir
+    if FLAGS.max_to_keep > 0:
+        saver = tf.train.Saver(max_to_keep=FLAGS.max_to_keep)
+        hooks.append(tf.train.CheckpointSaverHook(checkpoint_dir=FLAGS.checkpoint_dir, save_secs=FLAGS.checkpoint_secs, saver=saver))
+
     # The MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
@@ -1458,9 +1513,9 @@ def train(server=None):
                 if is_chief:
                     # Retrieving global_step from the (potentially restored) model
                     feed_dict = {}
-                    switchable_data_set.set_data_set(feed_dict, data_sets.train)
+                    model_feeder.set_data_set(feed_dict, model_feeder.train)
                     step = session.run(global_step, feed_dict=feed_dict)
-                    COORD.start_coordination(data_sets, step)
+                    COORD.start_coordination(model_feeder, step)
 
                 # Get the first job
                 job = COORD.get_job()
@@ -1471,9 +1526,8 @@ def train(server=None):
                     # The feed_dict (mainly for switching between queues)
                     feed_dict = {}
 
-                    # Sets the current data_set on SwitchableDataSet switchable_data_set
-                    # and the respective placeholder in feed_dict
-                    switchable_data_set.set_data_set(feed_dict, getattr(data_sets, job.set_name))
+                    # Sets the current data_set for the respective placeholder in feed_dict
+                    model_feeder.set_data_set(feed_dict, getattr(model_feeder, job.set_name))
 
                     # Initialize loss aggregator
                     total_loss = 0.0
@@ -1521,6 +1575,7 @@ def train(server=None):
                     if job.report:
                         job.mean_edit_distance = total_mean_edit_distance / job.steps
                         job.wer, job.samples = calculate_report(report_results)
+
 
                     # Send the current job to coordinator and receive the next one
                     log_debug('Sending %s...' % str(job))
