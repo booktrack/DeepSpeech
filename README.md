@@ -58,7 +58,7 @@ I'd recommend several days of training on a single GPU/CPU machine before using 
 ```
 
 ## Building the native client
-This client can be downloaded - [See below for more details](#installing-pre-built-DeepSpeech-Python-bindings).
+This client can be downloaded - [See below for more details](#Install).
 
 
 ### Using the native client
