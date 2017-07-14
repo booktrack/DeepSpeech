@@ -57,41 +57,9 @@ I'd recommend several days of training on a single GPU/CPU machine before using 
 ./export_graph.py --checkpoint_dir data/ckpt --export_dir /some/folder/for/the/new/graph
 ```
 
-## Building the native client (and Tensorflow 1.1.0)
-The native client requires tensorflow to compile, which in turn requires bazel.  
-The following instructions work for Ubuntu 16.04.
+## Building the native client
+This client can be downloaded - [See below for more details](#installing-pre-built-DeepSpeech-Python-bindings).
 
-### Install bazel
-```
-echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
-sudo apt-get update && sudo apt-get install bazel
-```
-### Setup tensorflow version 1.1.0
-The DeepSpeech code has been setup to have TensorFlow up one directory from it and puts its own little hooks inside Tensorflow.
-I recommend you use all the defaults for `./configure`, from inside the virtualenv you've created above.
-So if you're inside the DeepSpeech repo, go:
-```
-cd ..
-git clone git@github.com:tensorflow/tensorflow.git
-git checkout v1.1.0
-./configure
-# link the native client into TF
-ln -s ../DeepSpeech/native_client ./
-# and finally build TF and the native client
-bazel build -c opt --copt=-march=native --copt=-mtune=native --copt=-O3
-```
-
-### Build the native client after setting up Tensorflow
-Execute the make file for the native client
-```
-cd DeepSpeech/native_client
-make deepspeech
-# install the native client into your Linux system
-sudo make install
-# update the linkages
-sudo ldconfig
-```
 
 ### Using the native client
 Now that you've build the native client you can use it as follows.
