@@ -58,7 +58,7 @@ I'd recommend several days of training on a single GPU/CPU machine before using 
 ```
 
 ## Building the native client
-This client can be downloaded - [See below for more details](#Install).
+This client can be downloaded - [See below for more details](#install).
 
 
 ### Using the native client
