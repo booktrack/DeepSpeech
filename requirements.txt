@@ -8,7 +8,7 @@ paramiko
 pysftp
 sox
 python_speech_features
-BeautifulSoup
+beautifulsoup4
 pyxdg
 bs4
 six
