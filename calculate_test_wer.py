@@ -15,6 +15,19 @@ conf = get_configuration("settings.ini")
 
 logging.basicConfig(level=logging.INFO)
 
+
+def calc_wer(t1: str, t2: str):
+    parts_1 = t1.split(' ')
+    parts_2 = t2.split(' ')
+    if len(parts_1) == len(parts_2):
+        num_wrong = 0.0
+        for i in range(0, len(parts_1)):
+            if parts_1[i] != parts_2[i]:
+                num_wrong += 1.0
+        return num_wrong / len(parts_1)
+    return -1.0  # can't in sequence
+
+
 if __name__ == '__main__':
 
     wer_list = []
@@ -41,10 +54,17 @@ if __name__ == '__main__':
                     list.append(item)
             text2 = ' '.join(list)
 
-            m = SequenceMatcher(None, text1, text2)
-            wer = 1.0 - m.ratio()
-            print("         " + filename + " WER:" + str(round(wer, 5)))
+            wer = calc_wer(text1, text2)
+            if wer == -1.0:
+                print("using SequenceMatcher()")
+                m = SequenceMatcher(None, text1, text2)
+                wer = 1.0 - m.ratio()
             wer_list.append(wer)
+            print("         " + filename + " WER:" + str(round(wer, 5)))
+            if wer > 0.1:
+                print(text1)
+                print(text2)
+                print()
 
     mean = reduce(lambda x, y: x + y, wer_list) / len(wer_list)
     print("\nmean WER:" + str(round(mean, 5)))
