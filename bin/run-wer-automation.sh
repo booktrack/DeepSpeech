@@ -1,9 +1,13 @@
 #!/bin/sh
 
+if [ -z "$COMPUTE_DATA_DIR" ]; then
+  COMPUTE_DATA_DIR=/opt/DeepSpeech/data
+fi
+
 python -u DeepSpeech.py \
-  --train_files "${COMPUTE_DATA_DIR}/ted-train.csv" \
-  --dev_files "${COMPUTE_DATA_DIR}/ted-dev.csv" \
-  --test_files "${COMPUTE_DATA_DIR}/ted-test.csv" \
+  --train_files "${COMPUTE_DATA_DIR}/librivox-train-clean-100.csv" \
+  --dev_files "${COMPUTE_DATA_DIR}/librivox-dev-clean.csv" \
+  --test_files "${COMPUTE_DATA_DIR}/librivox-test-clean.csv" \
   --train_batch_size 16 \
   --dev_batch_size 8 \
   --test_batch_size 8 \
