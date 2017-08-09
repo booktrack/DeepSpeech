@@ -6,11 +6,10 @@ This is because running docker from the root of this project with its potentiall
 files causes Docker to send these as docker context files, slowing down the process of building the images
 significantly.
 
-FIRST RUN `setup_for_docker.sh` from the `docker_client` directory.
-
-
 ## docker build
 ```
+cd docker_client
+./setup_for_docker.sh
 docker build -t dsclient .
 ```
 
