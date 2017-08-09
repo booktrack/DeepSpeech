@@ -37,10 +37,11 @@ def remove_progress(job_id: str):
 
 # the thread that will process the sound file and deliver it back to the parent
 # filename will be removed at the end of this processing as it is assumed to be a scratch file
-# stt_method = {'kaldi', 'pocketsphinx'}
-def processing_thread(deep_speech_config, unique_id: str, filename: str, silence_db = 30):
+def processing_thread(deep_speech_config, unique_id: str, filename: str, silence_db = 40,
+                      silence_length_in_secs: float = 0.5):
     logger.info("starting STT(" + unique_id + ")")
-    result = deep_speech_tt(deep_speech_config, unique_id, filename, silence_db=silence_db)
+    result = deep_speech_tt(deep_speech_config, unique_id, filename, silence_db=silence_db,
+                            silence_length_in_secs=silence_length_in_secs)
     logger.info("finished STT(" + unique_id + "), got " + str(len(result)) + " parts")
 
     # write the converted items to file for the given id
@@ -54,7 +55,10 @@ def processing_thread(deep_speech_config, unique_id: str, filename: str, silence
 
 # run the deep speech to text
 # convert the file to 16KHz wav, split it around db silences
-def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, silence_db: int):
+# silence_db: the decibel max for a silence
+# silence_length_in_secs: the min length for a block of silence in seconds (or a fraction of a second)
+def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str,
+                   silence_db: int = 40, silence_length_in_secs: float = 0.5, graph: str = None):
 
     global ffmpeg_executable
     global deepspeech_executable
@@ -63,7 +67,10 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
     if ffmpeg_executable is None:
         ffmpeg_executable = deep_speech_config["ffmpeg_executable"]
         deepspeech_executable = deep_speech_config["deepspeech_executable"]
-        deepspeech_graph_file = deep_speech_config["deepspeech_graph_file"]
+        if graph is None:
+            deepspeech_graph_file = deep_speech_config["deepspeech_graph_file"]
+        else:
+            deepspeech_graph_file = graph
 
     # sanity check required files exist
     required_files = [input_sound_file, ffmpeg_executable, deepspeech_executable, deepspeech_graph_file]
@@ -85,7 +92,7 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str, si
 
     # split the sound file into many for very long files
     logger.debug("splitting sound-file into many for " + unique_id)
-    sound_file_list = split_soundfile_into_many(unique_id, temp_file_name, top_db=silence_db)
+    sound_file_list = split_soundfile_into_many(unique_id, temp_file_name, silence_db, silence_length_in_secs)
     logger.debug("split wav into " + str(len(sound_file_list)) + " parts for " + unique_id)
 
     # use the deepspeech native executable to convert the given wav file to text

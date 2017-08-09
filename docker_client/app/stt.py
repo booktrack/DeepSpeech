@@ -18,8 +18,8 @@ logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__' :
 
-    if len(sys.argv) != 2:
-        print("takes one argument (and an instream): noise_db (e.g. 40)")
+    if len(sys.argv) != 3:
+        print("takes two arguments (and the file from stdin): max_noise_db (e.g. 40) min_silence_length_in_secs (e.g. 0.5)")
     else:
 
         temp_name = next(tempfile._get_candidate_names())
@@ -34,9 +34,11 @@ if __name__ == '__main__' :
             raise ValueError("graph file not found:" + graph)
 
         silence_db = int(sys.argv[1])
+        silence_length_in_secs = int(sys.argv[2])
 
         temp_name = next(tempfile._get_candidate_names())
 
-        text_output_list = deep_speech_tt(conf["DeepSpeech"], graph, temp_name, input_sound_file, silence_db)
+        text_output_list = deep_speech_tt(conf["DeepSpeech"], temp_name, input_sound_file,
+                                          silence_db, silence_length_in_secs, graph)
         for text_out in text_output_list:
             print(text_out)
