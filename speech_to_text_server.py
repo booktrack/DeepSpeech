@@ -35,6 +35,7 @@ app = Flask(__name__)
 @app.route('/api/v1/start_deep_speech_to_text', methods=['GET', 'POST'])
 def start_deep_speech_to_text():
     silence_db = request.args.get('silence_db', int(config["DeepSpeech"]["silence_db"]), int)
+    silence_length_in_secs = request.args.get('silence_length_in_secs', float(config["DeepSpeech"]["silence_length_in_secs"]), float)
     if request.method == 'POST':
         if 'file' in request.files:
             file = request.files['file']
@@ -50,7 +51,7 @@ def start_deep_speech_to_text():
                     check_path(filename, tempfile.gettempdir())  # security, check path is ok
                     file.save(filename)
                     # async process the request
-                    pool.apply_async(processing_thread, (config["DeepSpeech"], unique_id, filename, silence_db))
+                    pool.apply_async(processing_thread, (config["DeepSpeech"], unique_id, filename, silence_db, silence_length_in_secs))
                     # in the meantime return the query id
                     return json.dumps({"id": unique_id, "links": [
                                        {"rel": "results", "type": "application/json", "title": "Speech to Text results", "href": "/api/v1/get_speech_to_text?id=" + unique_id }
