@@ -49,14 +49,7 @@ if __name__ == '__main__':
                 input_sound_file = os.path.join(base_path, filename)
                 temp_name = next(tempfile._get_candidate_names())
                 text_output_tuple = deep_speech_tt(conf["DeepSpeech"], temp_name, input_sound_file, 60)
-                text_temp = ''.join([item for item, _ in text_output_tuple])
-                list = []
-                for item in text_temp.split(' '):
-                    if item == "un":
-                        list.append("unc")
-                    else:
-                        list.append(item)
-                text2 = ' '.join(list)
+                text2 = ''.join([item for item, _ in text_output_tuple])
 
                 wer = calc_wer(text1, text2)
                 if wer == -1.0:
@@ -64,9 +57,8 @@ if __name__ == '__main__':
                     wer = 1.0 - m.ratio()
                 wer_list.append(wer)
                 print("         " + filename + " WER:" + str(round(wer, 5)))
-                if wer > 0.1:
-                    print(text1)
-                    print(text2)
+                print(text1)
+                print(text2)
                 print()
 
     mean = reduce(lambda x, y: x + y, wer_list) / len(wer_list)
