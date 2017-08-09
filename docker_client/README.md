@@ -1,6 +1,14 @@
 
 ## DeepSpeech client
 
+The required files for the docker build need to be FIRST COPIED from the data directory into a local data directory.
+This is because running docker from the root of this project with its potentially millions of speech
+files causes Docker to send these as docker context files, slowing down the process of building the images
+significantly.
+
+FIRST RUN `setup_for_docker.sh` from the `docker_client` directory.
+
+
 ## docker build
 ```
 docker build -t dsclient .

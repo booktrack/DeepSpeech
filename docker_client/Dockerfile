@@ -31,12 +31,12 @@ RUN mkdir -p /app/data/lm
 RUN mkdir /app/data/graph
 RUN mkdir /app/data/spell
 
-COPY docker_client/software/kenlm.zip /app/software/kenlm.zip
+COPY software/kenlm.zip /app/software/kenlm.zip
 
 RUN pip3 --no-cache-dir install six librosa /app/software/kenlm.zip
 
 # setup native client
-COPY docker_client/software/native_client.tar.xz /app/software/native_client.tar.xz
+COPY software/native_client.tar.xz /app/software/native_client.tar.xz
 WORKDIR /app/software
 RUN tar xvfJ native_client.tar.xz
 RUN cp lib* /usr/local/lib/
@@ -44,7 +44,7 @@ RUN cp deepspeech /usr/local/bin/
 RUN ldconfig
 
 # copy python data files and scripts
-COPY ./docker_client/app /app
+COPY ./app /app
 COPY ./data/lm/lm.binary /app/data/lm/lm.binary
 COPY ./data/graph/output_graph.pb /app/data/graph/output_graph.pb
 COPY ./data/spell/words.txt /app/data/spell/words.txt
