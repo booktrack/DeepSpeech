@@ -15,9 +15,9 @@ docker build -t dsclient .
 ## docker run
 The run takes an input stream of an audio file that can be processed by ffmpeg and a two parameters for detecting silences.
 The first parameter (40 in the example below) is the maximum noise level in decibels (suggest values of 10 through 60)
-The second parameter (0.5 in the below example) is the minimum length of a silence in seconds.
+The second parameter (1.5 in the below example) is the minimum length of a silence in seconds.
 ```
-cat docker_client/app/data/1284-1180-0010.wav | docker run --rm -i dsclient 40 0.5
+cat docker_client/app/data/1284-1180-0010.wav | docker run --rm -i dsclient 40 1.5
 ```
 example output
 ```

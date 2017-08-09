@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 if __name__ == '__main__' :
 
     if len(sys.argv) != 3:
-        print("takes two arguments (and the file from stdin): max_noise_db (e.g. 40) min_silence_length_in_secs (e.g. 0.5)")
+        print("takes two arguments (and the file from stdin): max_noise_db (e.g. 40) min_silence_length_in_secs (e.g. 1.0)")
     else:
 
         temp_name = next(tempfile._get_candidate_names())

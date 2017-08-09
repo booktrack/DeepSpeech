@@ -18,7 +18,7 @@ def _split_sound_file(filename: str, top_db=20, frame_length=4096, hop_length=51
 # silence_length_in_secs: a fraction of a second (or more) for the length of a silence
 # hop_length: step size inside the frame length (silence_length_in_secs) blocks
 # sr: the sample rate of the files to process
-def split_soundfile_into_many(job_id: str, sound_filename: str, top_db=20, silence_length_in_secs=0.5,
+def split_soundfile_into_many(job_id: str, sound_filename: str, top_db=20, silence_length_in_secs=1.0,
                               hop_length=512, sr=16000):
     # split the file
     frame_length = int(sr * silence_length_in_secs)

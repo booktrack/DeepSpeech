@@ -17,7 +17,7 @@ if __name__ == '__main__' :
     if len(sys.argv) != 2 and len(sys.argv) != 3 and len(sys.argv) != 4:
         print("takes up to three arguments (one parameter required): /path/to/soundfile.mp3  "
               "[noise_db_max] [min_silence_length_in_secs]")
-        print("      e.g.  ./speech_to_text_cmd_line.py /test/file.ogg 30 0.5")
+        print("      e.g.  ./speech_to_text_cmd_line.py /test/file.ogg 30 1.0")
     else:
         input_sound_file = sys.argv[1]
         silence_db = int(conf["DeepSpeech"]["silence_db"])
