@@ -44,10 +44,10 @@ RUN cp deepspeech /usr/local/bin/
 RUN ldconfig
 
 # copy python data files and scripts
-COPY ./app /app
 COPY ./data/lm/lm.binary /app/data/lm/lm.binary
 COPY ./data/graph/output_graph.pb /app/data/graph/output_graph.pb
 COPY ./data/spell/words.txt /app/data/spell/words.txt
+COPY ./app /app
 
 WORKDIR /app
 
