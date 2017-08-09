@@ -1,0 +1,3 @@
+six
+software/kenlm.zip
+librosa
