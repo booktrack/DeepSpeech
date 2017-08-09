@@ -56,7 +56,7 @@ def processing_thread(deep_speech_config, unique_id: str, filename: str, silence
 # silence_db: the decibel max for a silence
 # silence_length_in_secs: the min length for a block of silence in seconds (or a fraction of a second)
 def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str,
-                   silence_db: int, silence_length_in_secs: float = 0.5):
+                   silence_db: int = 40, silence_length_in_secs: float = 0.5, graph: str = None):
 
     global ffmpeg_executable
     global deepspeech_executable
@@ -65,7 +65,10 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str,
     if ffmpeg_executable is None:
         ffmpeg_executable = deep_speech_config["ffmpeg_executable"]
         deepspeech_executable = deep_speech_config["deepspeech_executable"]
-        deepspeech_graph_file = deep_speech_config["deepspeech_graph_file"]
+        if graph is None:
+            deepspeech_graph_file = deep_speech_config["deepspeech_graph_file"]
+        else:
+            deepspeech_graph_file = graph
 
     # sanity check required files exist
     required_files = [input_sound_file, ffmpeg_executable, deepspeech_executable, deepspeech_graph_file]
@@ -87,8 +90,7 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str,
 
     # split the sound file into many for very long files
     logger.debug("splitting sound-file into many for " + unique_id)
-    sound_file_list = split_soundfile_into_many(unique_id, temp_file_name, top_db=silence_db,
-                                                silence_length_in_secs = silence_length_in_secs)
+    sound_file_list = split_soundfile_into_many(unique_id, temp_file_name, silence_db, silence_length_in_secs)
     logger.debug("split wav into " + str(len(sound_file_list)) + " parts for " + unique_id)
 
     # use the deepspeech native executable to convert the given wav file to text
