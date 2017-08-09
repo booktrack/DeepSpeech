@@ -11,8 +11,8 @@ if [ ! -e "../data/graph/output_graph.pb" ]; then
 fi
 
 mkdir -p data/lm
-mkdir data/graph
-mkdir data/spell
+mkdir -p data/graph
+mkdir -p data/spell
 
 cp ../data/lm/lm.binary data/lm/
 cp ../data/graph/output_graph.pb data/graph/
