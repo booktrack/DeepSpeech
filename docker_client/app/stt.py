@@ -34,7 +34,7 @@ if __name__ == '__main__' :
             raise ValueError("graph file not found:" + graph)
 
         silence_db = int(sys.argv[1])
-        silence_length_in_secs = int(sys.argv[2])
+        silence_length_in_secs = float(sys.argv[2])
 
         temp_name = next(tempfile._get_candidate_names())
 
