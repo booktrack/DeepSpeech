@@ -30,3 +30,6 @@
 /native_client/javascript/deepspeech_wrap.cxx
 deepspeech
 docker_client/data/
+data/ldc93s1/
+*.mp3
+nohup.out
