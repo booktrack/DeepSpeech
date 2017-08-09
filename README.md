@@ -2,6 +2,23 @@
 
 Project DeepSpeech is an open source Speech-To-Text engine that uses a model trained by machine learning techniques, based on [Baidu's Deep Speech research paper](https://arxiv.org/abs/1412.5567). Project DeepSpeech uses Google's [TensorFlow](https://www.tensorflow.org/) project to facilitate implementation.
 
+# DeepSpeech client
+An easy client contained in a docker container run through docker (see below)
+
+## docker build
+```
+docker build -t dsclient .
+```
+
+## docker run
+The run takes an input stream of an audio file that can be processed by ffmpeg and a single `noisedb` parameter for detecting silences using a noise level.
+```
+cat app/data/1284-1180-0010.wav | docker run --rm -i dsclient 40
+```
+example output
+```
+('un knocked at the door of the house and a chubby pleasant faced woman dressed all in blu opened it and greeted the visitors with a smile', 0.0)
+```
 
 # Training LibriSpeech
 I've added this section as a clear example of how to train and use LibriSpeech in DeepSpeech.  The original documentation follows after this section.
