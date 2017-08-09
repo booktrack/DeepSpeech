@@ -7,6 +7,8 @@ An easy client contained in a docker container run through docker (see below)
 
 ## docker build
 ```
+cd docker_client
+./setup_for_docker.sh
 docker build -t dsclient .
 ```
 
