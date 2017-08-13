@@ -1,6 +1,6 @@
 #!/bin/bash
 
-base=/home/peter/dev/booktrack/DeepSpeech
+base=/opt/DeepSpeech
 cd $base
 . $base/.env/bin/activate
 
