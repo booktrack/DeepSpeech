@@ -4,8 +4,8 @@ base=/home/peter/dev/booktrack/DeepSpeech
 cd $base
 . $base/.env/bin/activate
 
-while [ 1 ]
-do
+#while [ 1 ]
+#do
 
   # rebuild using current graph
   graph=$base/data/graph
@@ -22,6 +22,6 @@ do
   # run wer
   python3 ./calculate_test_wer.py >> $base/wer_log.txt
 
-  sleep 1h
+#  sleep 1h
 
-done
+#done
