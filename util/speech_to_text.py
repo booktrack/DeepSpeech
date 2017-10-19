@@ -75,7 +75,7 @@ def deep_speech_tt(deep_speech_config, unique_id: str, input_sound_file: str,
     # sanity check required files exist
     required_files = [input_sound_file, ffmpeg_executable, deepspeech_executable, deepspeech_graph_file]
     for file in required_files:
-        if not os.path.isfile(ffmpeg_executable):
+        if not os.path.isfile(file):
             raise ValueError("file/executable/data missing:" + file)
 
     write_progress(unique_id, 'splitting sound-file: 0.00%')
