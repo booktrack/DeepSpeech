@@ -12,6 +12,6 @@ beautifulsoup4
 pyxdg
 bs4
 six
-client/software/kenlm.zip
+docker_client/software/kenlm.zip
 librosa
 flask
